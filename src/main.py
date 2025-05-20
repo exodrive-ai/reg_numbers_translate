@@ -29,29 +29,44 @@ def to_excel(df: DataFrame) -> bytes:
         st.error(f"Ошибка при создании Excel файла: {e}")
         return None
 
-uploaded_file = st.file_uploader(label="Загрузите сюда ваш файл с расширением xlsx", type=['xlsx'])
+# Add a unique key and more specific file type acceptance
+uploaded_file = st.file_uploader(
+    label="Загрузите сюда ваш файл с расширением xlsx",
+    type=['xlsx'],
+    key="excel_uploader",
+    accept_multiple_files=False,
+    help="Выберите Excel файл (.xlsx) с госномерами в первой колонке"
+)
 
 if uploaded_file is not None:
     try:
-        # Read the uploaded file directly
-        df = read_excel(uploaded_file, header=None)
-        
-        # Validate that the dataframe has at least one column
-        if df.shape[1] < 1:
-            st.error("Файл должен содержать хотя бы одну колонку с данными.")
-        else:
-            # Apply the conversion function to the first column
-            df[0] = df[0].apply(change_letters)
+        # Show a spinner while processing
+        with st.spinner('Обработка файла...'):
+            # Read the uploaded file directly
+            df = read_excel(uploaded_file, header=None, engine='openpyxl')
             
-            # Convert to Excel
-            df_xlsx = to_excel(df)
+            # Log the dataframe for debugging
+            st.write(f"Размер данных: {df.shape}")
             
-            if df_xlsx:
-                st.download_button(
-                    label='📥 Скачать результат',
-                    data=df_xlsx,
-                    file_name='reg_numbers.xlsx',
-                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-                )
+            # Validate that the dataframe has at least one column
+            if df.shape[1] < 1:
+                st.error("Файл должен содержать хотя бы одну колонку с данными.")
+            else:
+                # Apply the conversion function to the first column
+                df[0] = df[0].astype(str).apply(change_letters)
+                
+                # Convert to Excel
+                df_xlsx = to_excel(df)
+                
+                if df_xlsx:
+                    st.success("Файл успешно обработан!")
+                    st.download_button(
+                        label='📥 Скачать результат',
+                        data=df_xlsx,
+                        file_name='reg_numbers.xlsx',
+                        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                    )
     except Exception as e:
-        st.error(f"Произошла ошибка при обработке файла: {e}")
+        st.error(f"Произошла ошибка при обработке файла: {str(e)}")
+        st.write("Подробности ошибки:")
+        st.exception(e)
